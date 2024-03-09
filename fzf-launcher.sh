@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 alacritty_class="launcher"
 alacritty_pid=$!
 
