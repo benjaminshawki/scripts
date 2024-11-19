@@ -9,8 +9,8 @@ outputs=$(swaymsg -t get_outputs | jq -r '.[] | select(.active) | "\(.name) \(.s
 
 # Internal display and LG UltraGear serial
 internal_display="eDP-1"
-# lg_display_serial="201NTWG86721"
-lg_display_serial="DP-1"
+lg_display_serial="201NTWG86721"
+# lg_display_serial="DP-1"
 
 # Flags and variables
 disable_internal=0
@@ -22,7 +22,10 @@ while IFS= read -r line; do
   width=$(echo $resolution | cut -d"x" -f1)
   height=$(echo $resolution | cut -d"x" -f2)
   
-  if [ "$display" == "$lg_display_serial" ]; then
+
+	# Display seems to work for usbc, however usbc over displayport doesnt work atm
+  # if [ "$serial" == "$lg_display_serial" ]; then
+  if [ "$serial" == "$lg_display_serial" ]; then
     disable_internal=1
     # Optionally, save external display info if needed
     external_display=$display
@@ -38,7 +41,8 @@ if [ $disable_internal -eq 1 ]; then
 
     # Configure the LG UltraGear display
     if [ -n "$external_display" ]; then
-        swaymsg output "$external_display" pos 0 0
+
+        swaymsg output "$external_display" mode 3440x1440@60Hz pos 0 0
         echo "Configured $external_display."
     fi
 else
