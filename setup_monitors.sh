@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-exec > /var/log/reload_sway_debug.log 2>&1
+# exec > /var/log/reload_sway_debug.log 2>&1
 echo "Running setup_monitors.sh at $(date)"
 
 # Get the names and details of the outputs including serial numbers
@@ -14,6 +14,10 @@ lg_display_serial="201NTWG86721"
 
 # Flags and variables
 disable_internal=0
+external_display=""
+external_width=0
+external_height=0
+
 
 while IFS= read -r line; do
   display=$(echo $line | awk '{print $1}')
@@ -21,6 +25,10 @@ while IFS= read -r line; do
   resolution=$(echo $line | awk '{print $3}')
   width=$(echo $resolution | cut -d"x" -f1)
   height=$(echo $resolution | cut -d"x" -f2)
+
+	echo $display
+	echo $serial
+	echo $resolution
   
 
 	# Display seems to work for usbc, however usbc over displayport doesnt work atm
@@ -32,7 +40,18 @@ while IFS= read -r line; do
     external_width=$width
     external_height=$height
   fi
+
+
+	if [ "$display" != "eDP-1" ]; then
+		external_display=$display
+	fi 
+
 done <<< "$outputs"
+
+echo "disable_internal: $disable_internal"
+echo "external_display: $external_display"
+echo "external_width: $external_width"
+
 
 if [ $disable_internal -eq 1 ]; then
     # Disable the internal display if the specific LG UltraGear monitor is connected
@@ -48,8 +67,13 @@ if [ $disable_internal -eq 1 ]; then
 else
     # Re-enable the internal display if the specific LG UltraGear monitor is not connected
     swaymsg output "$internal_display" enable
-    swaymsg output "$internal_display" pos 0 0
+    swaymsg output "$internal_display" pos 0 1080
     echo "Enabled $internal_display as no LG UltraGear monitor with serial $lg_display_serial is connected."
+
+		if [ -n "$external_display" ]; then
+				swaymsg output "$external_display" pos 0 0
+				echo "Configured $external_display."
+		fi
 fi
 
 #
