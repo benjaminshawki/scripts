@@ -3,7 +3,7 @@
 ## Add these lines to your Sway config file
 
 ```
-# Emoji picker with FZF
+# Emoji picker with FZF (copies to clipboard)
 bindsym $mod+period exec $USER_BIN/emoji-picker/emoji-picker.sh
 
 # Set floating window properties for the emoji picker
@@ -27,3 +27,10 @@ while read app_id; do
   fi
 done
 ```
+
+## Usage
+1. Press $mod+period to open the emoji picker
+2. Type to search for emojis
+3. Use arrow keys to navigate
+4. Press Enter to select an emoji (it will be copied to your clipboard)
+5. Paste the emoji where you want using Ctrl+V or your paste shortcut
