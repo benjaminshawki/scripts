@@ -61,7 +61,7 @@ if [ $disable_internal -eq 1 ]; then
     # Configure the LG UltraGear display
     if [ -n "$external_display" ]; then
 
-        swaymsg output "$external_display" mode 3440x1440@60Hz pos 0 0
+        swaymsg output "$external_display" mode 3440x1440@160Hz pos 0 0
         echo "Configured $external_display."
     fi
 else
