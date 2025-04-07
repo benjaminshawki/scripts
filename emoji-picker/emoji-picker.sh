@@ -5,24 +5,24 @@
 # Copies the selected emoji to clipboard
 
 # Path to the emoji CSV file
-EMOJI_FILE="/home/benjamin/bin/emoji-picker/emojis.csv"
+EMOJI_FILE="$HOME/bin/emoji-picker/emojis.csv"
 
 # Check if the file exists
 if [ ! -f "$EMOJI_FILE" ]; then
-    notify-send "Error" "Emoji file not found: $EMOJI_FILE"
-    exit 1
+	notify-send "Error" "Emoji file not found: $EMOJI_FILE"
+	exit 1
 fi
 
 # Check if wl-copy is installed (for clipboard)
-if ! command -v wl-copy &> /dev/null; then
-    notify-send "Error" "wl-copy is not installed. Please install wl-clipboard package."
-    exit 1
+if ! command -v wl-copy &>/dev/null; then
+	notify-send "Error" "wl-copy is not installed. Please install wl-clipboard package."
+	exit 1
 fi
 
 # Check if fzf is installed
-if ! command -v fzf &> /dev/null; then
-    notify-send "Error" "fzf is not installed. Please install fzf package."
-    exit 1
+if ! command -v fzf &>/dev/null; then
+	notify-send "Error" "fzf is not installed. Please install fzf package."
+	exit 1
 fi
 
 # Process the emoji file to a format suitable for fzf
@@ -33,7 +33,7 @@ emoji_data=$(awk -F ', ' '{gsub(/"/, "", $2); print $1 "\t" $2}' "$EMOJI_FILE")
 TEMP_SCRIPT=$(mktemp)
 
 # Write the script content
-cat > "$TEMP_SCRIPT" << 'EOF'
+cat >"$TEMP_SCRIPT" <<'EOF'
 #!/bin/bash
 
 # Process the emoji file

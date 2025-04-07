@@ -66,8 +66,9 @@ if [ $disable_internal -eq 1 ]; then
     fi
 else
     # Re-enable the internal display if the specific LG UltraGear monitor is not connected
+		centered_width=$(((external_width - 1920) / 2))
     swaymsg output "$internal_display" enable
-    swaymsg output "$internal_display" pos 0 1080
+    swaymsg output "$internal_display" pos $centered_width $external_height
     echo "Enabled $internal_display as no LG UltraGear monitor with serial $lg_display_serial is connected."
 
 		if [ -n "$external_display" ]; then
