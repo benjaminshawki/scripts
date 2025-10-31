@@ -18,33 +18,42 @@ fi
 # Function to open URL/file based on type
 open_item() {
     local item="$1"
-    echo "DEBUG: Opening item: '$item'" >&2
+    local debug_log="/tmp/debug-reading-list.log"
+    
+    echo "$(date): open_item called with: '$item'" >> "$debug_log"
+    
     if [ -n "$item" ]; then
-        # Check if it's a URL
-        if [[ "$item" =~ ^https?:// ]]; then
-            echo "DEBUG: Opening URL in browser" >&2
-            nohup $BROWSER --new-window "$item" >/dev/null 2>&1 &
         # Check if it's a PDF or EPUB file
-        elif [[ "$item" =~ \.(pdf|epub)$ ]] && [ -f "$item" ]; then
-            echo "DEBUG: Opening PDF/EPUB in zathura" >&2
-            echo "DEBUG: Full path: '$item'" >&2
-            zathura "$item" &
-            disown
+        if [[ "$item" =~ \.(pdf|epub)$ ]] && [ -f "$item" ]; then
+            echo "$(date): Detected PDF/EPUB: '$item'" >> "$debug_log"
+            echo "$(date): File exists check: $([ -f "$item" ] && echo 'YES' || echo 'NO')" >> "$debug_log"
+            echo "$(date): Trying multiple zathura launch methods..." >> "$debug_log"
+            
+            # Try to launch zathura only once
+            echo "$(date): Launching zathura for: '$item'" >> "$debug_log"
+            # Use nohup directly since it's more reliable
+            nohup zathura "$item" >/dev/null 2>&1 &
+            echo "$(date): Zathura launched with PID $!" >> "$debug_log"
         # Check if it's a markdown file
         elif [[ "$item" =~ \.md$ ]] && [ -f "$item" ]; then
-            echo "DEBUG: Opening markdown in nvim" >&2
+            echo "$(date): Detected markdown, opening with nvim" >> "$debug_log"
             foot -e nvim "$item" &
             disown
-        # Check if it's any other existing file
-        elif [ -f "$item" ]; then
-            echo "DEBUG: Opening file in nvim" >&2
+        # Check if it's any other existing file (but not PDF/EPUB/MD)
+        elif [ -f "$item" ] && ! [[ "$item" =~ \.(pdf|epub|md)$ ]]; then
+            echo "$(date): Detected other file, opening with nvim" >> "$debug_log"
             foot -e nvim "$item" &
             disown
+        # Everything else is treated as a URL
         else
-            echo "DEBUG: Unknown item type or file not found: $item" >&2
-            echo "DEBUG: File exists check: $([ -f "$item" ] && echo 'yes' || echo 'no')" >&2
-            sleep 2
-            exit 1
+            echo "$(date): Treating as URL, opening with browser: '$item'" >> "$debug_log"
+            # Add https:// if no protocol specified
+            if ! [[ "$item" =~ ^https?:// ]]; then
+                item="https://$item"
+                echo "$(date): Added https:// prefix: '$item'" >> "$debug_log"
+            fi
+            $BROWSER --new-window "$item" &
+            disown
         fi
         sleep 0.5
         exit 0
@@ -54,8 +63,14 @@ open_item() {
 # Function to open an entry
 open_entry() {
     local entry="$1"
+    local debug_log="/tmp/debug-reading-list.log"
+    
+    echo "$(date): open_entry called with: '$entry'" >> "$debug_log"
+    
     # Extract the URL/path after the :: delimiter
     local path=$(echo "$entry" | sed 's/^.*:: //')
+    echo "$(date): extracted path: '$path'" >> "$debug_log"
+    
     open_item "$path"
 }
 
@@ -63,13 +78,13 @@ open_entry() {
 add_entry() {
     echo "Adding new entry..."
     echo
-    read -p "Name: " name
+    read -e -p "Name: " name
     if [ -z "$name" ]; then
         echo "Name cannot be empty"
         return 1
     fi
     
-    read -p "URL/Path: " path
+    read -e -p "URL/Path: " path
     if [ -z "$path" ]; then
         echo "Path cannot be empty"
         return 1
@@ -98,12 +113,12 @@ edit_entry() {
     echo "Current: $old_entry"
     echo
     
-    read -p "New name (Enter to keep: $old_name): " new_name
+    read -e -p "New name (Enter to keep: $old_name): " new_name
     if [ -z "$new_name" ]; then
         new_name="$old_name"
     fi
     
-    read -p "New URL/Path (Enter to keep: $old_path): " new_path
+    read -e -p "New URL/Path (Enter to keep: $old_path): " new_path
     if [ -z "$new_path" ]; then
         new_path="$old_path"
     else
@@ -152,8 +167,10 @@ main_menu() {
                     while read -r file; do
                         # Extract just the filename without path for the name
                         basename="${file##*/}"
-                        # Remove extension for cleaner name
+                        # Remove extension for cleaner name and escape special chars
                         name="${basename%.*}"
+                        # Replace problematic characters
+                        name=$(echo "$name" | sed 's/\[/(/g; s/\]/)/g; s/&/and/g')
                         echo "[Book] $name :: $file"
                     done)
         fi
@@ -174,12 +191,15 @@ main_menu() {
         # Create temporary file for action
         local action_file=$(mktemp)
         
+        # Debug: Show what entries we have
+        echo "$(date): Total entries: $(echo "$entries" | wc -l)" >> "/tmp/debug-reading-list.log"
+        
         # Main FZF menu
         local selected=$(echo "$entries" | fzf --reverse --border rounded \
             --prompt "Search reading items: " \
-            --header $'╱ Ctrl+Enter: Open ╱ Ctrl+e: Edit ╱ Ctrl+a: Add ╱ Ctrl+d: Delete ╱ Esc/q: Quit ╱\n' \
+            --header $'╱ Enter: Open ╱ Ctrl+e: Edit ╱ Ctrl+a: Add ╱ Ctrl+d: Delete ╱ Esc/q: Quit ╱\n' \
             --info inline \
-            --bind "ctrl-m:execute-silent(echo 'open:{}' > $action_file)+abort" \
+            --bind "enter:execute-silent(printf 'open:%s\\n' {} > $action_file)+abort" \
             --bind "ctrl-e:execute-silent(echo 'edit:{}' > $action_file)+abort" \
             --bind "ctrl-a:execute-silent(echo 'add' > $action_file)+abort" \
             --bind "ctrl-d:execute-silent(echo 'delete:{}' > $action_file)+abort" \
@@ -187,21 +207,29 @@ main_menu() {
             --bind 'esc:abort')
         
         # Check if user quit (no action file content means abort)
+        echo "$(date): Checking action file: $action_file" >> "/tmp/debug-reading-list.log"
         if [ ! -s "$action_file" ]; then
+            echo "$(date): Action file empty or missing, user quit" >> "/tmp/debug-reading-list.log"
             rm -f "$action_file"
             break
         fi
+        echo "$(date): Action file has content, processing..." >> "/tmp/debug-reading-list.log"
         
         # Read the action
         local action=$(cat "$action_file")
+        echo "$(date): Raw action from file: '$action'" >> "/tmp/debug-reading-list.log"
         rm -f "$action_file"
         
         # Parse and execute the action
         if [[ "$action" == open:* ]]; then
             local entry=$(echo "$action" | sed 's/open://')
+            echo "$(date): Action parsed, entry: '$entry'" >> "/tmp/debug-reading-list.log"
             if [ "$entry" != "(empty) :: No entries found. Press Ctrl+a to add a new entry." ]; then
+                echo "$(date): Calling open_entry" >> "/tmp/debug-reading-list.log"
                 open_entry "$entry"
                 break  # Exit after opening
+            else
+                echo "$(date): Entry was empty, not opening" >> "/tmp/debug-reading-list.log"
             fi
         elif [[ "$action" == edit:* ]]; then
             local entry=$(echo "$action" | sed 's/edit://')
